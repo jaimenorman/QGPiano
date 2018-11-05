@@ -1,11 +1,10 @@
-void runAnalysis()
+enum {kAll,kEbony,kIvory};
+
+void runAnalysis(TString outName = "outputDefault")
 {
-    // set if you want to run the analysis locally (kTRUE), or on grid (kFALSE)
     Bool_t local = kTRUE;
-    // if you run on grid, specify test mode (kTRUE) or full grid model (kFALSE)
     Bool_t gridTest = kTRUE;
     
-    // since we will compile a class, tell root where to look for headers  
     gROOT->ProcessLine(".include $ROOTSYS/include");
     gROOT->ProcessLine(".include $ALICE_ROOT/include");
 
@@ -20,6 +19,10 @@ void runAnalysis()
     gROOT->LoadMacro("AddMyTask.C");
     // create an instance of your analysis task
     AliAnalysisTaskSounds *task = AddMyTask();
+    task->SetPitchOption(kEbony); 
+    task->SetOutputName(Form("%s.abc",outName.Data())); 
+    task->SetPHigh(5.);
+    task->SetPLow(0.4);
 
     if(!mgr->InitAnalysis()) return;
     mgr->SetDebugLevel(2);
@@ -30,8 +33,11 @@ void runAnalysis()
         // if you want to run locally, we need to define some input
         TChain* chain = new TChain("aodTree");
         // add a few files to the chain (change this so that your local files are added)
-//        chain->Add("~/Lc/AOD/LHC11b2/130795/AOD136a/1/AliAOD.root");
-        chain->Add("~/Lc/AOD/LHC11h_2/170593/AOD145/1/AliAOD.root");
+        //chain->Add("~/Lc/AOD/LHC11b2/130795/AOD136a/1/AliAOD.root"); //pp 7 TeV
+        //chain->Add("/Users/jaime/Lc/AOD/LHC10d/AOD137/1/AliAOD.root"); //pp 7 TeV
+				//chain->Add("/Users/jaime/Lc/AOD/LHC16l/1/AliAOD.root"); // pp 13 TeV
+        //chain->Add("~/Lc/AOD/LHC11h_2/170593/AOD145/1/AliAOD.root"); //Pb-Pb
+        chain->Add("~/Lc/AOD/LHC13d3/195389/AOD159/1/AliAOD.root"); // p-Pb 5 TeV
         // start the analysis locally, reading the events from the tchain
         mgr->StartAnalysis("local", chain);
     } else {

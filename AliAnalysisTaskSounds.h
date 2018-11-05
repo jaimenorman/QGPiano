@@ -10,12 +10,20 @@
 #include <iostream>
 #include <fstream>
 
+enum {kAll,kEbony,kIvory};
+
 class AliAnalysisTaskSounds : public AliAnalysisTaskSE  
 {
     public:
                                 AliAnalysisTaskSounds();
                                 AliAnalysisTaskSounds(const char *name);
         virtual                 ~AliAnalysisTaskSounds();
+
+				//Setters
+				void										SetPitchOption(Int_t option) {fPitchOption = option;} 
+				void										SetOutputName(TString option) {fOutputName = option;} 
+				void										SetPHigh(Double_t option) {fPHigh = option;}
+				void										SetPLow(Double_t option) {fPLow = option;}
 
 				//Getters
 				Double_t                GetPitch(Double_t p);
@@ -42,8 +50,10 @@ class AliAnalysisTaskSounds : public AliAnalysisTaskSE
 				Double_t fPHigh; /// max p
 				Double_t fPLow;	 /// min p
 				Double_t f2pi;   /// 2 pi
+				Int_t fPitchOption; // pitch option
 				Int_t fEventCounter; /// event counter
 				Int_t fNmaxEvents; /// max number of events to run over
+				TString fOutputName; /// output name
 				ofstream fOutputStream;
 
         AliAnalysisTaskSounds(const AliAnalysisTaskSounds&); // not implemented
