@@ -10,7 +10,6 @@
 #include <iostream>
 #include <fstream>
 
-enum {kAll,kEbony,kIvory};
 
 class AliAnalysisTaskSounds : public AliAnalysisTaskSE  
 {
@@ -22,11 +21,13 @@ class AliAnalysisTaskSounds : public AliAnalysisTaskSE
 				//Setters
 				void										SetPitchOption(Int_t option) {fPitchOption = option;} 
 				void										SetOutputName(TString option) {fOutputName = option;} 
-				void										SetPHigh(Double_t option) {fPHigh = option;}
-				void										SetPLow(Double_t option) {fPLow = option;}
+				void										SetPtHigh(Double_t option) {fPtHigh = option;}
+				void										SetPtLow(Double_t option) {fPtLow = option;}
+				void										SetNmaxEvents(Int_t option) {fNmaxEvents = option;}
+				void										SetIsLowPtCutoff(Bool_t option) {fIsLowPtCutoff = option;}
 
 				//Getters
-				Double_t                GetPitch(Double_t p);
+				Double_t                GetPitch(Double_t pt);
 				Double_t                GetDynamic(Double_t p, Double_t pt);
 				Int_t										GetTime(Double_t phi);
 
@@ -36,6 +37,8 @@ class AliAnalysisTaskSounds : public AliAnalysisTaskSE
         virtual void            UserCreateOutputObjects();
         virtual void            UserExec(Option_t* option);
         virtual void            Terminate(Option_t* option);
+
+        enum {kAll,kEbony,kIvory};
 
     private:
 
@@ -47,10 +50,11 @@ class AliAnalysisTaskSounds : public AliAnalysisTaskSE
 				TClonesArray *fStaveArray; //! array of notes
 				TNtuple *fStave; //! ntuple
 				Int_t fDivision; //! division
-				Double_t fPHigh; /// max p
-				Double_t fPLow;	 /// min p
+				Double_t fPtHigh; /// max pt
+				Double_t fPtLow;	 /// min pt
 				Double_t f2pi;   /// 2 pi
 				Int_t fPitchOption; // pitch option
+				Bool_t fIsLowPtCutoff;	 /// is the low pt limit removed from score
 				Int_t fEventCounter; /// event counter
 				Int_t fNmaxEvents; /// max number of events to run over
 				TString fOutputName; /// output name

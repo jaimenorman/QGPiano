@@ -48,10 +48,11 @@ AliAnalysisTaskSounds::AliAnalysisTaskSounds() : AliAnalysisTaskSE(),
 		fHistPt(0),
 		fStave(0x0),
 		fDivision(16),
-		fPHigh(10.),
-		fPLow(0.),
+		fPtHigh(10.),
+		fPtLow(0.),
 		f2pi(TMath::Pi() * 2),
 		fPitchOption(kIvory),
+		fIsLowPtCutoff(kFALSE),
 		fEventCounter(0),
 		fNmaxEvents(50),
 		fOutputName("output")
@@ -65,10 +66,11 @@ AliAnalysisTaskSounds::AliAnalysisTaskSounds(const char* name) : AliAnalysisTask
 		fHistPt(0),
 		fStave(0x0),
 		fDivision(16),
-		fPHigh(10.),
-		fPLow(0.),
+		fPtHigh(10.),
+		fPtLow(0.),
 		f2pi(TMath::Pi() * 2),
 		fPitchOption(kIvory),
+		fIsLowPtCutoff(kFALSE),
 		fEventCounter(0),
 		fNmaxEvents(50),
 		fOutputName("output")
@@ -110,7 +112,19 @@ void AliAnalysisTaskSounds::UserCreateOutputObjects()
 
 		fStaveArray = new TClonesArray("MyNote",10000);
                                         // your histogram in the output file, add it to the list!
-		fOutputStream.open(Form("%s.abc",fOutputName.Data()));
+
+    //set name of output file
+    TString option = "";
+    if(fPitchOption==kAll) option += "all";
+    if(fPitchOption==kIvory) option += "ivory";
+    if(fPitchOption==kEbony) option += "ebony";
+    // pt range
+    option += Form("_pt_%.1f_%.1f",fPtLow,fPtHigh);
+    // pt cutoff
+    if(fIsLowPtCutoff) option += Form("_lowPtCut");
+    // n. events
+    option += Form("_n%i",fNmaxEvents);
+		fOutputStream.open(Form("%s_%s.abc",fOutputName.Data(),option.Data()));
 		fOutputStream<<"X:1\nT:Particles\nC:the ALICE collaboration\nM:4/4\nL:1/"<<fDivision<<"\nK:C\n";
 			//X:1
 			//T:Paddy O'Rafferty
@@ -135,6 +149,7 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
     Int_t iTracks(fAOD->GetNumberOfTracks());           
 		Float_t timeNo, pitchNo, dynamicNo;
 		AliInfo(Form("event counter = %i\tn tracks = %i",fEventCounter,iTracks));
+    Int_t iAccepted = 0;
     for(Int_t i(0); i < iTracks; i++) {                 // loop over all tracks
         AliAODTrack* track = static_cast<AliAODTrack*>(fAOD->GetTrack(i));         
         if(!track) continue;                            
@@ -143,11 +158,12 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
 				Float_t pt = track->Pt();
 				Float_t phi = track->Phi();
 				AliInfo(Form("p = %f\tpt = %f\tphi = %f",p,pt,phi));
+        if(fIsLowPtCutoff && pt<fPtLow) continue;
 
-				pitchNo = GetPitch(p);
+				pitchNo = GetPitch(pt);
 				timeNo = GetTime(phi);
 				dynamicNo = GetDynamic(p,pt);
-				new((*fStaveArray)[i]) MyNote(timeNo, pitchNo, dynamicNo);
+				new((*fStaveArray)[iAccepted]) MyNote(timeNo, pitchNo, dynamicNo);
 //				MyNote *note = new(  (*fStaveArray)[i]  ) MyNote(timeNo, pitchNo, dynamicNo);
 				//AliInfo(Form("time from note = %i",note.GetTime()));	
 				//AliInfo(Form("pitchNo = %f\ttimeNo = %i\t",pitchNo,timeNo));
@@ -156,9 +172,9 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
 				tmp[1] = pitchNo;
 				tmp[2] = dynamicNo;
 				fStave->Fill(tmp);
+        iAccepted++;
     }                                                   // continue until all the tracks are processed
 		AliInfo(Form("Finished loop on tracks - n entries in array = %i",fStaveArray->GetEntriesFast()));
-		fStaveArray->Print();
 		// finish loop
 		// now sort stave
 		Int_t nentries = fStaveArray->GetEntriesFast();
@@ -166,7 +182,7 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
 		for(Int_t itime=0;itime<nentries;itime++) {
 			timeNo = ((MyNote*)fStaveArray->At(itime))->GetTime();
 			timeArray[itime] = timeNo;
-			AliInfo(Form("Add to array - time = %f",timeNo));
+			//AliInfo(Form("Add to array - time = %f",timeNo));
 		}
 
 		// sort in order of time and save order in index
@@ -174,15 +190,23 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
 		TMath::Sort(nentries,timeArray,index);
 		TString bar = "";
 		Int_t nRests = 0;
-		bar.Append("| ["); //start bar
+		bar.Append("| "); //start bar
 		//now loop over stave in order of time
 		for(Int_t i=nentries-1;i>=0;i--) {
 			MyNote *note = (MyNote*)fStaveArray->At(index[i]);
-			AliInfo(Form("get entry %i:",index[i]));
+			//AliInfo(Form("get entry %i:",index[i]));
 			timeNo    = note->GetTime();
 			pitchNo   = note->GetPitch();
 			dynamicNo = note->GetDynamic();
 			AliInfo(Form("time = %f\tpitch = %f\tdynamic = %f",timeNo,pitchNo,dynamicNo));
+      //
+      // add rests and note start if start of bar
+      if(i==nentries-1) {
+        // rests
+        nRests = Int_t(timeNo); 
+        if(nRests!=0) bar.Append(Form("z%i",nRests));
+        bar.Append("[");
+      }
 
 			// get string corresponding to pitch
 			TString pitchString = PitchToString(pitchNo);
@@ -190,20 +214,25 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
 			bar.Append(pitchString);
 			if(i!=0) {//not last note
 				if(((MyNote*)fStaveArray->At(index[i]))->GetTime() !=
-						((MyNote*)fStaveArray->At(index[i-1]))->GetTime()) {
+						((MyNote*)fStaveArray->At(index[i-1]))->GetTime()) { // if last note with given time
 					bar.Append("]");
 
 					//add rests if needed
 					Float_t timeNoNext = timeNo;
 					timeNoNext = ((MyNote*)fStaveArray->At(index[i-1]))->GetTime();
-					AliInfo(Form("time now = %f\ttime next = %f",timeNo,timeNoNext));
+					//AliInfo(Form("time now = %f\ttime next = %f",timeNo,timeNoNext));
 					nRests = Int_t(timeNoNext-timeNo-1);
 					if(nRests!=0) bar.Append(Form("z%i",nRests));
 					bar.Append("[");
 				}
 
 			}
-			else bar.Append("] ");
+			else { // last note
+        bar.Append("]");
+        // add rests if needed, i.e. if timeNo<15
+        nRests = 15-Int_t(timeNo);
+        if(nRests!=0) bar.Append(Form("z%i",nRests));
+      }
 		}
 		AliInfo(bar);
 		fOutputStream<<bar;
@@ -216,11 +245,11 @@ void AliAnalysisTaskSounds::UserExec(Option_t *)
 }
 //_____________________________________________________________________________
 
-Double_t AliAnalysisTaskSounds::GetPitch(Double_t p) {
+Double_t AliAnalysisTaskSounds::GetPitch(Double_t pt) {
 	//get pitch as fraction of total pitch
-	if(p<fPLow) return 0;
-	if(p>fPHigh) return 1.;
-	Double_t pitch = p / fPHigh;
+	if(pt<fPtLow) return 0;
+	if(pt>fPtHigh) return 1.;
+	Double_t pitch = pt / fPtHigh;
 	return pitch;
 }
 
@@ -252,7 +281,7 @@ TString AliAnalysisTaskSounds::PitchToString(Double_t pitch) {
 	const Int_t nNotesAll = 32;
 	TString notesTrebleClefAll[nNotesAll] = {"G,","^G,","A,","^A,","B,","C","^C","D","^D","E","F","^F","G","^G","A","^A","B","c","^c","d","^d","e","f","^f","g","^g","a","^a","b","c'","^c'","d'"};
 	Bool_t isNoteFound = kFALSE;
-	Int_t nNotesLoop; 
+	Int_t nNotesLoop = 0; 
 	if(fPitchOption==kAll) nNotesLoop = nNotesAll;
 	if(fPitchOption==kIvory) nNotesLoop = nNotesIvory;
 	if(fPitchOption==kEbony) nNotesLoop = nNotesEbony;

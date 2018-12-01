@@ -14,7 +14,9 @@ AliAnalysisTaskSounds* AddMyTask(TString name = "name")
     AliAnalysisTaskSounds* task = new AliAnalysisTaskSounds(name.Data());   
     if(!task) return 0x0;
     mgr->AddTask(task);
+    TString contname = name;
+    contname += "_output";
     mgr->ConnectInput(task,0,mgr->GetCommonInputContainer());
-    mgr->ConnectOutput(task,1,mgr->CreateContainer("MyOutputContainer", TList::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
+    mgr->ConnectOutput(task,1,mgr->CreateContainer(contname.Data(), TList::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
     return task;
 }
